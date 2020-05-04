@@ -1,4 +1,4 @@
-{
+export default {
   "version": 0.6,
   "generator": "Overpass API 0.7.56.3 eb200aeb",
   "osm3s": {

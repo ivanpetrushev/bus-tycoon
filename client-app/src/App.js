@@ -2,19 +2,25 @@ import React from 'react';
 import './App.css';
 import {Button, Row, Col, Table} from "react-bootstrap";
 // import L from 'leaflet';
-import {Map, ScaleControl, TileLayer} from 'react-leaflet'
-import {makeid} from "./helpers";
+import {Map, Polyline, ScaleControl, TileLayer} from 'react-leaflet'
+import {makeid, polyline_decode, get_nearest_node} from "./helpers";
 import 'leaflet-contextmenu';
 import 'leaflet-contextmenu/dist/leaflet.contextmenu.css'
 
 // import {gis} from "./gis";
+
+const osrmEndpoint = 'http://127.0.0.1:5000'
 
 class App extends React.Component {
     state = {
         centerLat: 42.579377,
         centerLon: 25.197144,
         zoom: 9,
-        buses: []
+        buses: [],
+        routeStart: {},
+        routeEnd: {},
+        currentRoute: [],
+        currentBus: {}
     };
 
     componentDidMount() {
@@ -51,6 +57,42 @@ class App extends React.Component {
         this.setState({busses: buses});
     };
 
+    selectRouteStart = (e) => {
+        let nearest = get_nearest_node(e.latlng.lat, e.latlng.lng);
+        this.setState({
+            routeStart: nearest.node
+        }, this.calculateRoute)
+    };
+
+    selectRouteEnd = (e) => {
+        let nearest = get_nearest_node(e.latlng.lat, e.latlng.lng);
+        this.setState({
+            routeEnd: nearest.node
+        }, this.calculateRoute)
+    };
+
+    calculateRoute = async () => {
+        if (!this.state.routeStart.lat || !this.state.routeEnd.lat) {
+            return;
+        }
+        let res = await fetch(osrmEndpoint + '/route/v1/driving/' + this.state.routeStart.lon + ',' + this.state.routeStart.lat + ';' +
+            this.state.routeEnd.lon + ',' + this.state.routeEnd.lat + '?steps=true&overview=full');
+        if (res.ok) {
+            let resJson = await res.json();
+            let currentRoute = [];
+            let steps = resJson['routes'][0]['legs'][0]['steps'];
+            for (let i in steps) {
+                let geometry = polyline_decode(steps[i]['geometry']);
+                for (let latlng of geometry) {
+                    currentRoute.push([latlng[0], latlng[1]])
+                }
+            }
+            this.setState({currentRoute: currentRoute});
+        } else {
+            console.log('fetch error', res.status)
+        }
+    };
+
 
     render() {
         // icons: https://github.com/pointhi/leaflet-color-markers
@@ -63,19 +105,15 @@ class App extends React.Component {
         //     shadowSize: [41, 41]
         // });
         let contextMenuItems = [{
-            text: 'Show coordinates',
-            callback: function(x) { console.log('1', x)}
+            text: 'Route Start',
+            callback: this.selectRouteStart
         }, {
-            text: 'Center map here',
-            callback: function(x) { console.log('2', x)}
-        }, '-', {
+            text: 'Route End',
+            callback: this.selectRouteEnd
+        },'-', {
             text: 'Zoom in',
             icon: 'images/zoom-in.png',
             callback: function(x) { console.log('3', x)}
-        }, {
-            text: 'Zoom out',
-            icon: 'images/zoom-out.png',
-            callback: function(x) { console.log('4', x)}
         }];
 
         return (
@@ -116,6 +154,7 @@ class App extends React.Component {
                                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                                 attribution="&copy; <a href=&quot;http://osm.org/copyright&quot;>OpenStreetMap</a> contributors"
                             />
+                            {this.state.currentRoute && <Polyline positions={this.state.currentRoute} color="red"/>}
 
                             <ScaleControl/>
                         </Map>
