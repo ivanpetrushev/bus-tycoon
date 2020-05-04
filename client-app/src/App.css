@@ -2,3 +2,7 @@
   width: 100%;
   height: 95vh;
 }
+
+tr.selected td {
+  font-weight: bold;
+}

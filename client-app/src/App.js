@@ -40,6 +40,13 @@ class App extends React.Component {
         })
     };
 
+    selectBus = (item) => {
+        this.setState({
+            currentBus: item,
+            currentRoute: item.currentRoute
+        });
+    };
+
     deleteBus = (id) => {
         console.log('deleteBus', id)
     };
@@ -88,6 +95,20 @@ class App extends React.Component {
                 }
             }
             this.setState({currentRoute: currentRoute});
+            
+            if (this.state.currentBus) {
+                let cb = this.state.currentBus;
+                cb.currentRoute = currentRoute;
+                cb.routeStartName = this.state.routeStart.tags['name'];
+                cb.routeEndName = this.state.routeEnd.tags['name'];
+                let buses = this.state.buses;
+                for (let i in buses) {
+                    if (buses[i]['id'] === cb['id']) {
+                        buses[i]['currentRoute'] = currentRoute;
+                    }
+                }
+                this.setState({currentBus: cb, buses: buses});
+            }
         } else {
             console.log('fetch error', res.status)
         }
@@ -125,23 +146,41 @@ class App extends React.Component {
                             <tr>
                                 <td>#</td>
                                 <td>ID</td>
+                                <td>Route</td>
                                 <td>Actions</td>
                             </tr>
                             </thead>
                             <tbody>
                             {this.state.buses.map((item, idx) => {
-                                return <tr key={idx}>
+                                let className = '';
+                                if (this.state.currentBus && this.state.currentBus.id === item.id) {
+                                    className = 'selected';
+                                }
+
+                                let routeNames = [];
+                                if (item.routeStartName) {
+                                    routeNames.push(item.routeStartName);
+                                }
+                                if (item.routeEndName) {
+                                    routeNames.push(item.routeEndName);
+                                }
+
+                                return <tr key={idx} className={className}>
                                     <td>{idx}</td>
                                     <td>{item.id}</td>
+                                    <td>{routeNames.join(' - ')}</td>
                                     <td>
                                         <Button variant="danger" onClick={() => {
                                             this.deleteBus(item.id)
                                         }}>X</Button>
+                                        <Button variant="success" onClick={() => {
+                                            this.selectBus(item)
+                                        }}>Select</Button>
                                     </td>
                                 </tr>
                             })}
                             <tr>
-                                <td colSpan={3}>
+                                <td colSpan={4}>
                                     <Button variant="success" onClick={this.addBus}>+</Button>
                                 </td>
                             </tr>
