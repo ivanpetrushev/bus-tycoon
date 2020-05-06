@@ -1,10 +1,11 @@
 import React from 'react';
 import './App.css';
-import {Button, Row, Col, Table} from "react-bootstrap";
+import {Button, Row, Col, Table, Form} from "react-bootstrap";
 // import L from 'leaflet';
 import {Map, Polyline, ScaleControl, TileLayer} from 'react-leaflet'
-import {makeid, polyline_decode, get_nearest_node} from "./helpers";
-import {FaAngleDoubleRight, FaAngleDoubleLeft} from 'react-icons/fa';
+import {makeid, polyline_decode, get_nearest_node, saveJSON} from "./helpers";
+import {FaAngleDoubleRight, FaAngleDoubleLeft, FaSave} from 'react-icons/fa';
+import bsCustomFileInput from 'bs-custom-file-input';
 import moment from "moment";
 import 'leaflet-contextmenu';
 import 'leaflet-contextmenu/dist/leaflet.contextmenu.css'
@@ -28,6 +29,8 @@ class App extends React.Component {
         currentBus: {}
     };
 
+    fileReader = new FileReader();
+
     tick = () => {
         let now = this.state.now.add(speedIncrements[this.state.speed], 'seconds');
         this.setState({now: now});
@@ -49,6 +52,11 @@ class App extends React.Component {
         this.setState({speed: speed});
     };
 
+    onSave = () => {
+        let jsonFilename = 'savegame.json';
+        saveJSON(this.state, jsonFilename);
+    };
+
     componentDidMount() {
         // force HTTPS
         if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
@@ -56,6 +64,13 @@ class App extends React.Component {
         }
 
         setInterval(this.tick, 1000);
+
+        bsCustomFileInput.init();
+        this.fileReader.onload = (event) => {
+            let state = JSON.parse(event.target.result);
+            state['now'] = moment(state['now']);
+            this.setState(state);
+        };
     }
 
     onNewGame = () => {
@@ -167,13 +182,31 @@ class App extends React.Component {
         return (
                 <Row>
                     <Col>
-                        <Button variant="primary" onClick={this.onSpeedDown}>
-                            <FaAngleDoubleLeft/>
-                        </Button>
-                        {this.state.now.format('Y-MM-DD HH:mm:ss')} (x{this.state.speed})
-                        <Button variant="primary" onClick={this.onSpeedUp}>
-                            <FaAngleDoubleRight/>
-                        </Button>
+                        <Form inline>
+                            <Form.Row>
+                                <Col xs={1}>
+                                    <Button variant="primary" onClick={this.onSpeedDown}>
+                                        <FaAngleDoubleLeft/>
+                                    </Button>
+                                </Col>
+                                <Col>
+                                    {this.state.now.format('Y-MM-DD HH:mm:ss')} (x{this.state.speed})
+                                </Col>
+                                <Col xs={1}>
+                                    <Button variant="primary" onClick={this.onSpeedUp}>
+                                        <FaAngleDoubleRight/>
+                                    </Button>
+                                </Col>
+                                <Col>
+                                    <Button variant="primary" onClick={this.onSave}>
+                                        <FaSave/>
+                                    </Button>
+                                </Col>
+                                <Col>
+                                    <Form.File onChange={e => this.fileReader.readAsText(e.target.files[0])} custom id="custom-file" label="Load"/>
+                                </Col>
+                            </Form.Row>
+                        </Form>
                         <h1>Buses</h1>
                         <Table striped bordered hover>
                             <thead>
