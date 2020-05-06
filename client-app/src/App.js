@@ -4,15 +4,20 @@ import {Button, Row, Col, Table} from "react-bootstrap";
 // import L from 'leaflet';
 import {Map, Polyline, ScaleControl, TileLayer} from 'react-leaflet'
 import {makeid, polyline_decode, get_nearest_node} from "./helpers";
+import {FaAngleDoubleRight, FaAngleDoubleLeft} from 'react-icons/fa';
+import moment from "moment";
 import 'leaflet-contextmenu';
 import 'leaflet-contextmenu/dist/leaflet.contextmenu.css'
 
 // import {gis} from "./gis";
 
-const osrmEndpoint = 'http://127.0.0.1:5000'
+const osrmEndpoint = 'http://127.0.0.1:5000';
+const speedIncrements = [0, 1, 30, 60, 2 * 60, 4 * 60, 8 * 60, 15 * 60, 30 * 60, 60 * 60];
 
 class App extends React.Component {
     state = {
+        now: moment(),
+        speed: 1,
         centerLat: 42.579377,
         centerLon: 25.197144,
         zoom: 9,
@@ -23,12 +28,34 @@ class App extends React.Component {
         currentBus: {}
     };
 
+    tick = () => {
+        let now = this.state.now.add(speedIncrements[this.state.speed], 'seconds');
+        this.setState({now: now});
+    };
+
+    onSpeedUp = () => {
+        let {speed} = this.state;
+        if (speed < speedIncrements.length - 1) {
+            speed++;
+        }
+        this.setState({speed: speed});
+    };
+
+    onSpeedDown = () => {
+        let {speed} = this.state;
+        if (speed > 0) {
+            speed--;
+        }
+        this.setState({speed: speed});
+    };
+
     componentDidMount() {
         // force HTTPS
         if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
             window.location.href = 'https:' + window.location.href.substring(window.location.protocol.length);
         }
 
+        setInterval(this.tick, 1000);
     }
 
     onNewGame = () => {
@@ -95,7 +122,7 @@ class App extends React.Component {
                 }
             }
             this.setState({currentRoute: currentRoute});
-            
+
             if (this.state.currentBus) {
                 let cb = this.state.currentBus;
                 cb.currentRoute = currentRoute;
@@ -140,6 +167,13 @@ class App extends React.Component {
         return (
                 <Row>
                     <Col>
+                        <Button variant="primary" onClick={this.onSpeedDown}>
+                            <FaAngleDoubleLeft/>
+                        </Button>
+                        {this.state.now.format('Y-MM-DD HH:mm:ss')} (x{this.state.speed})
+                        <Button variant="primary" onClick={this.onSpeedUp}>
+                            <FaAngleDoubleRight/>
+                        </Button>
                         <h1>Buses</h1>
                         <Table striped bordered hover>
                             <thead>
