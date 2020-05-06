@@ -53,8 +53,7 @@ class App extends React.Component {
     };
 
     onSave = () => {
-        let jsonFilename = 'savegame.json';
-        saveJSON(this.state, jsonFilename);
+        saveJSON(this.state, 'savegame.json');
     };
 
     componentDidMount() {
@@ -90,7 +89,9 @@ class App extends React.Component {
     };
 
     deleteBus = (id) => {
-        console.log('deleteBus', id)
+        let {buses} = this.state;
+        buses = buses.filter(item => item.id !== id);
+        this.setState({buses: buses});
     };
 
     addBus = () => {
@@ -101,9 +102,15 @@ class App extends React.Component {
             lat: null,
             lon: null
         };
-        let buses = this.state.buses;
+        let {buses} = this.state;
         buses.push(bus);
-        this.setState({busses: buses});
+        this.setState({
+            buses: buses,
+            currentBus: bus,
+            currentRoute: [],
+            routeStart: {},
+            routeEnd: {},
+        });
     };
 
     selectRouteStart = (e) => {
@@ -139,17 +146,19 @@ class App extends React.Component {
             this.setState({currentRoute: currentRoute});
 
             if (this.state.currentBus) {
-                let cb = this.state.currentBus;
-                cb.currentRoute = currentRoute;
-                cb.routeStartName = this.state.routeStart.tags['name'];
-                cb.routeEndName = this.state.routeEnd.tags['name'];
-                let buses = this.state.buses;
+                let {currentBus} = this.state;
+                currentBus.currentRoute = currentRoute;
+                currentBus.routeStartName = this.state.routeStart.tags['name'];
+                currentBus.routeEndName = this.state.routeEnd.tags['name'];
+                currentBus.routeDistanceKm = (resJson['routes'][0]['distance'] / 1000).toFixed(2);
+                currentBus.routeDurationMin = (resJson['routes'][0]['duration'] / 60).toFixed(0);
+                let {buses} = this.state;
                 for (let i in buses) {
-                    if (buses[i]['id'] === cb['id']) {
+                    if (buses[i]['id'] === currentBus['id']) {
                         buses[i]['currentRoute'] = currentRoute;
                     }
                 }
-                this.setState({currentBus: cb, buses: buses});
+                this.setState({currentBus: currentBus, buses: buses});
             }
         } else {
             console.log('fetch error', res.status)
@@ -214,6 +223,8 @@ class App extends React.Component {
                                 <td>#</td>
                                 <td>ID</td>
                                 <td>Route</td>
+                                <td>Distance</td>
+                                <td>Duration</td>
                                 <td>Actions</td>
                             </tr>
                             </thead>
@@ -236,6 +247,8 @@ class App extends React.Component {
                                     <td>{idx}</td>
                                     <td>{item.id}</td>
                                     <td>{routeNames.join(' - ')}</td>
+                                    <td>{item.routeDistanceKm}km</td>
+                                    <td>{item.routeDurationMin} min</td>
                                     <td>
                                         <Button variant="danger" onClick={() => {
                                             this.deleteBus(item.id)
@@ -247,7 +260,7 @@ class App extends React.Component {
                                 </tr>
                             })}
                             <tr>
-                                <td colSpan={4}>
+                                <td colSpan={6}>
                                     <Button variant="success" onClick={this.addBus}>+</Button>
                                 </td>
                             </tr>
