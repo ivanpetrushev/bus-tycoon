@@ -2,15 +2,15 @@ import React from 'react';
 import './App.css';
 import {Button, Row, Col, Table, Form} from "react-bootstrap";
 // import L from 'leaflet';
-import {Map, Polyline, ScaleControl, TileLayer} from 'react-leaflet'
-import {makeid, polyline_decode, get_nearest_node, saveJSON} from "./helpers";
+import {Map, Marker, Polyline, ScaleControl, TileLayer} from 'react-leaflet'
+import {makeid, polyline_decode, get_nearest_node, saveJSON, distance} from "./helpers";
 import {FaAngleDoubleRight, FaAngleDoubleLeft, FaSave} from 'react-icons/fa';
 import bsCustomFileInput from 'bs-custom-file-input';
 import moment from "moment";
 import 'leaflet-contextmenu';
 import 'leaflet-contextmenu/dist/leaflet.contextmenu.css'
 
-// import {gis} from "./gis";
+import {gis} from "./gis";
 
 const osrmEndpoint = 'http://127.0.0.1:5000';
 const speedIncrements = [0, 1, 30, 60, 2 * 60, 4 * 60, 8 * 60, 15 * 60, 30 * 60, 60 * 60];
@@ -34,6 +34,30 @@ class App extends React.Component {
     tick = () => {
         let now = this.state.now.add(speedIncrements[this.state.speed], 'seconds');
         this.setState({now: now});
+
+        let {buses} = this.state;
+        for (let j = 0; j < buses.length; j++) {
+            let remainingDistance = buses[j].speed / 3600 * 1000; // km/h => m/s
+            remainingDistance *= speedIncrements[this.state.speed];
+            let {currentRoute} = buses[j];
+            while (remainingDistance > 0 && currentRoute.length > 1) {
+                let segmentBegin = currentRoute.shift();
+                let segmentEnd = currentRoute[0];
+                let segmentLength = distance(segmentBegin[0], segmentBegin[1], segmentEnd[0], segmentEnd[1], 'K') * 1000;
+                if (segmentLength < remainingDistance) {
+                    remainingDistance -= segmentLength;
+                } else {
+                    let bearing = gis.getBearingLatLon(segmentBegin, segmentEnd);
+                    let newPosition = gis.createCoordLatLon(segmentBegin, bearing, remainingDistance);
+                    remainingDistance = 0;
+                    currentRoute.unshift(newPosition);
+                    buses[j].lat = newPosition[0];
+                    buses[j].lon = newPosition[1];
+                }
+            }
+            buses[j].currentRoute = currentRoute;
+        }
+        this.setState({buses: buses});
     };
 
     onSpeedUp = () => {
@@ -97,6 +121,7 @@ class App extends React.Component {
     addBus = () => {
         let bus = {
             id: makeid(5),
+            speed: 80, // km/h
             currentRoute: [],
             defaultRoute: [],
             lat: null,
@@ -152,6 +177,8 @@ class App extends React.Component {
                 currentBus.routeEndName = this.state.routeEnd.tags['name'];
                 currentBus.routeDistanceKm = (resJson['routes'][0]['distance'] / 1000).toFixed(2);
                 currentBus.routeDurationMin = (resJson['routes'][0]['duration'] / 60).toFixed(0);
+                currentBus.lat = this.state.routeStart.lat;
+                currentBus.lon = this.state.routeStart.lon;
                 let {buses} = this.state;
                 for (let i in buses) {
                     if (buses[i]['id'] === currentBus['id']) {
@@ -274,6 +301,13 @@ class App extends React.Component {
                                 attribution="&copy; <a href=&quot;http://osm.org/copyright&quot;>OpenStreetMap</a> contributors"
                             />
                             {this.state.currentRoute && <Polyline positions={this.state.currentRoute} color="red"/>}
+
+                            {this.state.buses.map((item, idx) => {
+                                if (!item.lat || !item.lon) {
+                                    return null;
+                                }
+                                return <Marker key={item.id} position={[item.lat, item.lon]} onClick={() => {this.selectBus(item)}}/>
+                            })}
 
                             <ScaleControl/>
                         </Map>
